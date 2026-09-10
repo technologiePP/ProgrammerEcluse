@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automatisme d'Écluse - Dispositions sous la Simulation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f4f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      margin: 0;
+      touch-action: manipulation;
+    }
+
+    h2 {
+      margin-bottom: 5px;
+      color: #37474f;
+    }
+
+    p.subtitle {
+      margin-top: 0;
+      color: #607d8b;
+      font-size: 14px;
+    }
+
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      margin-top: 10px;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    /* ZONE DE SIMULATION VISUELLE EN HAUT */
+    #lock-container {
+      position: relative;
+      width: 100%;
+      height: 300px;
+      background: #e0f7fa;
+      border: 4px solid #37474f;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+    }
+
+    .water {
+      position: absolute;
+      bottom: 0;
+      background-color: #29b6f6;
+      transition: height 0.1s linear;
+    }
+    #water-upstream { left: 0; width: 220px; height: 220px; background-color: #0288d1; }
+    #water-chamber { left: 230px; width: 340px; height: 80px; }
+    #water-downstream { left: 580px; width: 220px; height: 80px; background-color: #4fc3f7; }
+
+    .water-flow {
+      position: absolute;
+      bottom: 0;
+      width: 30px;
+      height: 80px;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.7),
+        rgba(255, 255, 255, 0.7) 10px,
+        rgba(41, 182, 246, 0.5) 10px,
+        rgba(41, 182, 246, 0.5) 20px
+      );
+      display: none;
+      z-index: 2;
+      animation: flowAnim 0.4s linear infinite;
+    }
+    #flow-left { left: 230px; }
+    #flow-right { left: 580px; }
+
+    @keyframes flowAnim {
+      0% { background-position: 0 0; }
+      100% { background-position: 0 20px; }
+    }
+    
+    .wall { position: absolute; bottom: 0; width: 10px; height: 250px; background: #78909c; }
+    #wall-left { left: 220px; }
+    #wall-right { left: 570px; }
+
+    .gate {
+      position: absolute;
+      bottom: 0;
+      width: 10px;
+      background: #8d6e63;
+      transition: height 0.5s ease;
+      z-index: 3;
+    }
+    #gate-left { left: 220px; height: 250px; }
+    #gate-right { left: 570px; height: 250px; }
+
+    .valve-hatch {
+      position: absolute;
+      left: 1px;
+      bottom: 10px;
+      width: 8px;
+      height: 35px;
+      background-color: #d84315;
+      border: 1px solid #3e2723;
+      border-radius: 2px;
+      transition: transform 0.4s ease, background-color 0.3s;
+    }
+    .valve-hatch.open {
+      transform: translateY(-30px);
+      background-color: #00e676;
+    }
+
+    .traffic-light {
+      position: absolute;
+      width: 15px;
+      height: 35px;
+      background: #37474f;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      align-items: center;
+      padding: 2px 0;
+      z-index: 4;
+    }
+    .light {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #546e7a;
+      transition: background-color 0.2s;
+    }
+    #light-upstream { left: 200px; top: 100px; }
+    #light-downstream { left: 590px; top: 220px; }
+
+    .light-red .light-top { background-color: #f44336; box-shadow: 0 0 5px #f44336; }
+    .light-green .light-bottom { background-color: #4caf50; box-shadow: 0 0 5px #4caf50; }
+
+    #boat {
+      position: absolute;
+      width: 70px;
+      height: 25px;
+      background: #d32f2f;
+      border-radius: 0 0 12px 12px;
+      transition: left 1s ease, bottom 0.1s linear;
+      z-index: 4;
+    }
+    #boat::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 18px;
+      width: 20px;
+      height: 8px;
+      background: #ffffff;
+      border: 1px solid #d32f2f;
+    }
+
+    /* BARRE D'INSTRUCTION ET STATUS EN DESSOUS DU SCHÉMA */
+    #status-msg {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      display: none;
+      box-sizing: border-box;
+    }
+    .status-info { background: #e3f2fd; color: #0d47a1; }
+    .status-error { background: #ffebee; color: #b71c1c; }
+    .status-success { background: #e8f5e9; color: #1b5e20; }
+
+    /* SECTION PROGRAMMATION SOUS LA SIMULATION (CÔTÉ À CÔTÉ) */
+    .programming-area {
+      display: flex;
+      gap: 20px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .toolbox-container, .drop-zone-container {
+      flex: 1;
+      background: #ffffff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    .toolbox-container h3, .drop-zone-container h3 {
+      margin-top: 0;
+      font-size: 16px;
+      color: #37474f;
+    }
+
+    .block-list {
+      min-height: 380px;
+      background: #fafafa;
+      border: 2px dashed #cfd8dc;
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-grow: 1;
+      transition: background-color 0.2s;
+    }
+
+    .action-block {
+      background: #00796b;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform 0.1s, background 0.2s;
+      touch-action: none; /* Empeche le scroll lors de la prise du bloc */
+    }
+
+    .action-block.wait-block { background: #7b1fa2; }
+    .action-block.close-block { background: #c62828; }
+
+    .action-block:active { cursor: grabbing; }
+
+    .action-block.active-step {
+      background: #ff9800 !important;
+      transform: scale(1.02);
+      box-shadow: 0 2px 8px rgba(255, 152, 0, 0.5);
+    }
+
+    .action-block.error-step {
+      background: #f44336 !important;
+    }
+
+    .action-block.dragging-touch {
+      opacity: 0.4;
+    }
+
+    .drag-clone {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.9;
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    button.btn-action {
+      flex: 1;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+    }
+    #btn-run { background-color: #4caf50; }
+    #btn-run:hover { background-color: #388e3c; }
+    #btn-reset { background-color: #78909c; }
+    #btn-reset:hover { background-color: #455a64; }
+  </style>
+</head>
+<body>
+
+  <h2>Automatisme d'Écluse : Séquencement et Sécurités Vannes</h2>
+  <p class="subtitle">Glisse les instructions de gauche vers la séquence de droite.</p>
+
+  <div class="main-container">
+    
+    <!-- VUE 2D SIMULATION (EN HAUT) -->
+    <div id="lock-container">
+      <div id="water-upstream" class="water"></div>
+      <div id="water-chamber" class="water"></div>
+      <div id="water-downstream" class="water"></div>
+
+      <div id="flow-left" class="water-flow"></div>
+      <div id="flow-right" class="water-flow"></div>
+
+      <div id="wall-left" class="wall"></div>
+      <div id="wall-right" class="wall"></div>
+
+      <div id="gate-left" class="gate">
+        <div id="hatch-left" class="valve-hatch"></div>
+      </div>
+      <div id="gate-right" class="gate">
+        <div id="hatch-right" class="valve-hatch"></div>
+      </div>
+
+      <div id="light-upstream" class="traffic-light light-red">
+        <div class="light light-top"></div>
+        <div class="light light-bottom"></div>
+      </div>
+      <div id="light-downstream" class="traffic-light light-red">
+        <div class="light light-top"></div>
+        <div class="light light-bottom"></div>
+      </div>
+
+      <div id="boat" style="left: 40px; bottom: 220px;"></div>
+    </div>
+    
+    <div id="status-msg"></div>
+
+    <!-- ZONE DE PROGRAMMATION (EN DESSOUS) -->
+    <div class="programming-area">
+      <!-- GAUCHE : BLOCS D'ACTIONS DISPONIBLES -->
+      <div class="toolbox-container">
+        <h3>1. Actions disponibles (Gauche)</h3>
+        <div id="toolbox" class="block-list" ondrop="drop(event)" ondragover="allowDrop(event)">
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-valve-left-open" data-action="OPEN_VALVE_LEFT">Ouvrir vanne amont</div>
+          <div class="action-block wait-block" draggable="true" ondragstart="drag(event)" id="cmd-wait-fill" data-action="WAIT_FILL">⏱️ Attendre remplissage (5s)</div>
+          <div class="action-block close-block" draggable="true" ondragstart="drag(event)" id="cmd-valve-left-close" data-action="CLOSE_VALVE_LEFT">Fermer vanne amont</div>
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-gate-left-open" data-action="OPEN_GATE_LEFT">Ouvrir porte amont</div>
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-boat-in" data-action="MOVE_BOAT_IN">Faire entrer le bateau</div>
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-gate-left-close" data-action="CLOSE_GATE_LEFT">Fermer porte amont</div>
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-valve-right-open" data-action="OPEN_VALVE_RIGHT">Ouvrir vanne aval</div>
+          <div class="action-block wait-block" draggable="true" ondragstart="drag(event)" id="cmd-wait-empty" data-action="WAIT_EMPTY">⏱️ Attendre vidange (5s)</div>
+          <div class="action-block close-block" draggable="true" ondragstart="drag(event)" id="cmd-valve-right-close" data-action="CLOSE_VALVE_RIGHT">Fermer vanne aval</div>
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-gate-right-open" data-action="OPEN_GATE_RIGHT">Ouvrir porte aval</div>
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-boat-out" data-action="MOVE_BOAT_OUT">Faire sortir le bateau</div>
+          <div class="action-block" draggable="true" ondragstart="drag(event)" id="cmd-gate-right-close" data-action="CLOSE_GATE_RIGHT">Fermer porte aval</div>
+        </div>
+      </div>
+
+      <!-- DROITE : SÉQUENCE ET COMMANDES -->
+      <div class="drop-zone-container">
+        <h3>2. Séquence d'exécution (Droite)</h3>
+        <div id="sequence" class="block-list" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+        
+        <div class="controls-bar">
+          <button id="btn-run" class="btn-action" onclick="runAutomation()">Lancer</button>
+          <button id="btn-reset" class="btn-action" onclick="resetSimulation()">Réinitialiser</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const levelHigh = 220;
+    const levelLow = 80;
+    let currentChamberLevel = 80;
+    let gateLeftOpen = false;
+    let gateRightOpen = false;
+    let valveLeftOpen = false;
+    let valveRightOpen = false;
+    let boatPosition = 0;
+    let isRunning = false;
+    let waterInterval = null;
+
+    const chamberWater = document.getElementById('water-chamber');
+    const boat = document.getElementById('boat');
+    const gateLeft = document.getElementById('gate-left');
+    const gateRight = document.getElementById('gate-right');
+    const hatchLeft = document.getElementById('hatch-left');
+    const hatchRight = document.getElementById('hatch-right');
+    const flowLeft = document.getElementById('flow-left');
+    const flowRight = document.getElementById('flow-right');
+    const lightUpstream = document.getElementById('light-upstream');
+    const lightDownstream = document.getElementById('light-downstream');
+    const statusMsg = document.getElementById('status-msg');
+
+    window.onload = () => {
+      const toolbox = document.getElementById('toolbox');
+      for (let i = toolbox.children.length; i >= 0; i--) {
+        toolbox.appendChild(toolbox.children[Math.random() * i | 0]);
+      }
+      initTouchEvents();
+    };
+
+    /* ------------ GESTION DES DRAG & DROP CLASSIQUES (SOURIS) ------------ */
+    function allowDrop(ev) { ev.preventDefault(); }
+    function drag(ev) { 
+      if(isRunning) return;
+      ev.dataTransfer.setData("text", ev.target.id); 
+    }
+    function drop(ev) {
+      ev.preventDefault();
+      if(isRunning) return;
+      const data = ev.dataTransfer.getData("text");
+      const draggedElement = document.getElementById(data);
+      let target = ev.target;
+      
+      while (target && !target.classList.contains('block-list')) {
+        target = target.parentNode;
+      }
+      if (target && draggedElement) {
+        target.appendChild(draggedElement);
+      }
+    }
+
+    /* ------------ COMPATIBILITÉ IPAD & ÉCRANS TACTILES (TOUCH) ------------ */
+    let draggedTouchElement = null;
+    let touchClone = null;
+    let touchOffsetX = 0;
+    let touchOffsetY = 0;
+
+    function initTouchEvents() {
+      const blocks = document.querySelectorAll('.action-block');
+      blocks.forEach(block => {
+        block.addEventListener('touchstart', handleTouchStart, { passive: false });
+        block.addEventListener('touchmove', handleTouchMove, { passive: false });
+        block.addEventListener('touchend', handleTouchEnd, { passive: false });
+      });
+    }
+
+    function handleTouchStart(e) {
+      if (isRunning) return;
+      draggedTouchElement = e.currentTarget;
+      
+      const touch = e.touches[0];
+      const rect = draggedTouchElement.getBoundingClientRect();
+      touchOffsetX = touch.clientX - rect.left;
+      touchOffsetY = touch.clientY - rect.top;
+
+      // Création du clone visuel qui va suivre le doigt
+      touchClone = draggedTouchElement.cloneNode(true);
+      touchClone.classList.add('drag-clone');
+      touchClone.style.width = rect.width + 'px';
+      touchClone.style.left = (touch.clientX - touchOffsetX) + 'px';
+      touchClone.style.top = (touch.clientY - touchOffsetY) + 'px';
+      
+      document.body.appendChild(touchClone);
+      draggedTouchElement.classList.add('dragging-touch');
+
+      e.preventDefault();
+    }
+
+    function handleTouchMove(e) {
+      if (!draggedTouchElement || !touchClone) return;
+      e.preventDefault();
+
+      const touch = e.touches[0];
+      touchClone.style.left = (touch.clientX - touchOffsetX) + 'px';
+      touchClone.style.top = (touch.clientY - touchOffsetY) + 'px';
+    }
+
+    function handleTouchEnd(e) {
+      if (!draggedTouchElement || !touchClone) return;
+      
+      const touch = e.changedTouches[0];
+      // On masque le clone un court instant pour repérer l'élément sous le doigt
+      touchClone.style.display = 'none';
+      const targetUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+      
+      if (targetUnderTouch) {
+        let dropTarget = targetUnderTouch.closest('.block-list');
+        if (dropTarget) {
+          dropTarget.appendChild(draggedTouchElement);
+        }
+      }
+
+      // Nettoyage
+      touchClone.remove();
+      touchClone = null;
+      draggedTouchElement.classList.remove('dragging-touch');
+      draggedTouchElement = null;
+
+      e.preventDefault();
+    }
+
+    /* ------------ SIMULATION LOGIQUE ------------ */
+    function updateBoatHeight() {
+      if (boatPosition === 0) boat.style.bottom = levelHigh + 'px';
+      else if (boatPosition === 1) boat.style.bottom = currentChamberLevel + 'px';
+      else if (boatPosition === 2) boat.style.bottom = levelLow + 'px';
+    }
+
+    function updateLights() {
+      lightUpstream.className = `traffic-light ${gateLeftOpen ? 'light-green' : 'light-red'}`;
+      lightDownstream.className = `traffic-light ${gateRightOpen ? 'light-green' : 'light-red'}`;
+    }
+
+    function showStatus(text, type) {
+      statusMsg.style.display = 'block';
+      statusMsg.className = `status-${type}`;
+      statusMsg.textContent = text;
+    }
+
+    function startWaterFlow(targetLevel) {
+      clearInterval(waterInterval);
+      waterInterval = setInterval(() => {
+        if (currentChamberLevel < targetLevel) {
+          currentChamberLevel += 1.4;
+          if (currentChamberLevel > targetLevel) currentChamberLevel = targetLevel;
+        } else if (currentChamberLevel > targetLevel) {
+          currentChamberLevel -= 1.4;
+          if (currentChamberLevel < targetLevel) currentChamberLevel = targetLevel;
+        } else {
+          clearInterval(waterInterval);
+        }
+        chamberWater.style.height = currentChamberLevel + 'px';
+        updateBoatHeight();
+      }, 50);
+    }
+
+    async function runAutomation() {
+      if (isRunning) return;
+      
+      const sequenceContainer = document.getElementById('sequence');
+      const blocks = Array.from(sequenceContainer.children);
+
+      if (blocks.length === 0) {
+        showStatus("Glisse des actions dans la zone de séquence avant de lancer.", "info");
+        return;
+      }
+
+      isRunning = true;
+      document.getElementById('btn-run').disabled = true;
+      showStatus("Exécution de la séquence en cours...", "info");
+
+      for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i];
+        const action = block.getAttribute('data-action');
+        
+        block.classList.add('active-step');
+        
+        const success = await executeAction(action);
+        
+        if (!success) {
+          block.classList.remove('active-step');
+          block.classList.add('error-step');
+          isRunning = false;
+          document.getElementById('btn-run').disabled = false;
+          return;
+        }
+
+        await new Promise(r => setTimeout(r, 400));
+        block.classList.remove('active-step');
+      }
+
+      if (boatPosition === 2 && !gateLeftOpen && !gateRightOpen && !valveLeftOpen && !valveRightOpen) {
+        showStatus("Succès ! Le bateau a franchi l'écluse en respectant toutes les consignes de sécurité.", "success");
+      } else {
+        showStatus("Séquence terminée, mais la manœuvre est incomplète.", "info");
+      }
+
+      isRunning = false;
+      document.getElementById('btn-run').disabled = false;
+    }
+
+    function executeAction(action) {
+      return new Promise((resolve) => {
+        switch (action) {
+          case 'OPEN_VALVE_LEFT':
+            if (gateLeftOpen || gateRightOpen) {
+              showStatus("Erreur : Impossible d'ouvrir la vanne si une porte est ouverte !", "error");
+              return resolve(false);
+            }
+            valveLeftOpen = true;
+            hatchLeft.classList.add('open');
+            flowLeft.style.display = 'block';
+            startWaterFlow(levelHigh);
+            resolve(true);
+            break;
+
+          case 'WAIT_FILL':
+            if (!valveLeftOpen && currentChamberLevel !== levelHigh) {
+              showStatus("Avertissement : Vous attendez alors que la vanne amont n'est pas ouverte.", "info");
+            }
+            setTimeout(() => { resolve(true); }, 5000);
+            break;
+
+          case 'CLOSE_VALVE_LEFT':
+            valveLeftOpen = false;
+            hatchLeft.classList.remove('open');
+            flowLeft.style.display = 'none';
+            resolve(true);
+            break;
+
+          case 'OPEN_GATE_LEFT':
+            if (valveLeftOpen) {
+              showStatus("Erreur Sécurité : Vous tentez d'ouvrir la porte amont alors que la vanne amont est encore ouverte !", "error");
+              return resolve(false);
+            }
+            if (Math.round(currentChamberLevel) < levelHigh) {
+              showStatus("Erreur Sécurité : Le niveau d'eau n'est pas égalisé !", "error");
+              return resolve(false);
+            }
+            if (gateRightOpen) {
+              showStatus("Erreur Sécurité : La porte aval est ouverte !", "error");
+              return resolve(false);
+            }
+            gateLeftOpen = true;
+            gateLeft.style.height = '50px';
+            updateLights();
+            setTimeout(() => resolve(true), 600);
+            break;
+
+          case 'CLOSE_GATE_LEFT':
+            gateLeftOpen = false;
+            gateLeft.style.height = '250px';
+            updateLights();
+            setTimeout(() => resolve(true), 600);
+            break;
+
+          case 'MOVE_BOAT_IN':
+            if (boatPosition === 0 && gateLeftOpen) {
+              boatPosition = 1;
+              boat.style.left = '360px';
+              setTimeout(() => { updateBoatHeight(); resolve(true); }, 1000);
+            } else {
+              showStatus("Erreur : Le bateau ne peut pas entrer (Porte amont fermée).", "error");
+              return resolve(false);
+            }
+            break;
+
+          case 'OPEN_VALVE_RIGHT':
+            if (gateLeftOpen || gateRightOpen) {
+              showStatus("Erreur : Impossible d'ouvrir la vanne si une porte est ouverte !", "error");
+              return resolve(false);
+            }
+            valveRightOpen = true;
+            hatchRight.classList.add('open');
+            flowRight.style.display = 'block';
+            startWaterFlow(levelLow);
+            resolve(true);
+            break;
+
+          case 'WAIT_EMPTY':
+            if (!valveRightOpen && currentChamberLevel !== levelLow) {
+              showStatus("Avertissement : Vous attendez alors que la vanne aval n'est pas ouverte.", "info");
+            }
+            setTimeout(() => { resolve(true); }, 5000);
+            break;
+
+          case 'CLOSE_VALVE_RIGHT':
+            valveRightOpen = false;
+            hatchRight.classList.remove('open');
+            flowRight.style.display = 'none';
+            resolve(true);
+            break;
+
+          case 'OPEN_GATE_RIGHT':
+            if (valveRightOpen) {
+              showStatus("Erreur Sécurité : Vous tentez d'ouvrir la porte aval alors que la vanne aval est encore ouverte !", "error");
+              return resolve(false);
+            }
+            if (Math.round(currentChamberLevel) > levelLow) {
+              showStatus("Erreur Sécurité : Le niveau d'eau n'est pas égalisé !", "error");
+              return resolve(false);
+            }
+            if (gateLeftOpen) {
+              showStatus("Erreur Sécurité : La porte amont est ouverte !", "error");
+              return resolve(false);
+            }
+            gateRightOpen = true;
+            gateRight.style.height = '50px';
+            updateLights();
+            setTimeout(() => resolve(true), 600);
+            break;
+
+          case 'CLOSE_GATE_RIGHT':
+            gateRightOpen = false;
+            gateRight.style.height = '250px';
+            updateLights();
+            setTimeout(() => resolve(true), 600);
+            break;
+
+          case 'MOVE_BOAT_OUT':
+            if (boatPosition === 1 && gateRightOpen) {
+              boatPosition = 2;
+              boat.style.left = '650px';
+              setTimeout(() => { updateBoatHeight(); resolve(true); }, 1000);
+            } else {
+              showStatus("Erreur : Le bateau ne peut pas sortir (Porte aval fermée).", "error");
+              return resolve(false);
+            }
+            break;
+
+          default:
+            resolve(false);
+        }
+      });
+    }
+
+    function resetSimulation() {
+      clearInterval(waterInterval);
+      isRunning = false;
+      document.getElementById('btn-run').disabled = false;
+      currentChamberLevel = 80;
+      gateLeftOpen = false;
+      gateRightOpen = false;
+      valveLeftOpen = false;
+      valveRightOpen = false;
+      boatPosition = 0;
+
+      chamberWater.style.height = levelLow + 'px';
+      gateLeft.style.height = '250px';
+      gateRight.style.height = '250px';
+      hatchLeft.classList.remove('open');
+      hatchRight.classList.remove('open');
+      flowLeft.style.display = 'none';
+      flowRight.style.display = 'none';
+
+      boat.style.left = '40px';
+      updateBoatHeight();
+      updateLights();
+
+      statusMsg.style.display = 'none';
+
+      document.querySelectorAll('.action-block').forEach(b => {
+        b.classList.remove('active-step', 'error-step');
+      });
+    }
+
+    updateBoatHeight();
+    updateLights();
+  </script>
+</body>
+</html>
